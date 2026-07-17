@@ -163,6 +163,7 @@ body {
   background-image:
     repeating-linear-gradient(3deg, transparent 0 38px, rgba(0,0,0,0.12) 39px 41px),
     repeating-linear-gradient(-2deg, transparent 0 61px, rgba(0,0,0,0.1) 62px 64px);
+  background-position-y: var(--bark-shift, 0px);
   mix-blend-mode: multiply;
 }
 

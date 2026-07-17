@@ -200,7 +200,7 @@
 
   function spawnAmbientAnts() {
     antsAmbient.innerHTML = "";
-    const count = 5;
+    const count = Math.min(12, 4 + state.upgrades.colonia);
     for (let i = 0; i < count; i++) {
       const el = document.createElement("div");
       el.className = "ant-sprite";
@@ -236,13 +236,13 @@
   // ---------- Bark parallax ----------
 
   function updateBarkPosition() {
-    const offset = (state.height * 2.2) % 400;
-    barkLayer.style.transform = `translateY(${offset}px)`;
+    // Shift only the seamless diagonal grain (::before) via CSS var, so
+    // there's no visible jump no matter how high the climb gets.
+    barkLayer.style.setProperty("--bark-shift", `${state.height * 2.2}px`);
   }
 
   // ---------- Toast / feedback ----------
 
-  let toastTimer = null;
   function showToast(msg, kind) {
     toast.textContent = msg;
     toast.style.borderColor = kind === "slip" ? "var(--bermellon)" : "var(--ambar)";
@@ -291,10 +291,15 @@
       climber.classList.add("slipping");
       setTimeout(() => climber.classList.remove("slipping"), 500);
       flashSlip();
+      if (navigator.vibrate) navigator.vibrate(80);
       showToast(`¡Resbalón! Fuiste muy rápido -${loss.toFixed(0)} cm`, "slip");
     } else {
+      const prevRecord = state.heightRecord;
       state.height += climbPower();
       if (state.height > state.heightRecord) state.heightRecord = state.height;
+      if (Math.floor(state.heightRecord / 100) > Math.floor(prevRecord / 100)) {
+        showToast(`Nuevo récord: ${Math.floor(state.heightRecord)} cm`, "record");
+      }
       climber.classList.remove("slipping");
       climber.classList.add("climbing");
       setTimeout(() => climber.classList.remove("climbing"), 350);
@@ -305,8 +310,13 @@
     saveState();
   }
 
+  // A swipe that starts on the button also fires a click on touchend;
+  // suppress the click briefly so one gesture never climbs twice.
+  let suppressClickUntil = 0;
+
   climbBtn.addEventListener("click", (e) => {
     e.preventDefault();
+    if (Date.now() < suppressClickUntil) return;
     doClimb();
   });
 
@@ -324,10 +334,21 @@
       if (touchStartY === null) return;
       const dy = touchStartY - e.changedTouches[0].clientY;
       touchStartY = null;
-      if (dy > 40) doClimb();
+      if (dy > 40) {
+        suppressClickUntil = Date.now() + 400;
+        doClimb();
+      }
     },
     { passive: true }
   );
+
+  document.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (e.code === "Space" || e.code === "ArrowUp") {
+      e.preventDefault();
+      doClimb();
+    }
+  });
 
   // ---------- Rendering ----------
 
@@ -396,6 +417,7 @@
     if (state.ants < cost) return;
     state.ants -= cost;
     state.upgrades[id]++;
+    if (id === "colonia") spawnAmbientAnts();
     renderStats();
     renderUpgrades();
     saveState();
@@ -418,7 +440,7 @@
         ${
           unlocked
             ? `<div class="sap-card__status">Desbloqueado permanentemente</div>`
-            : `<div class="sap-card__bar"><div class="sap-card__bar-fill" style="width:${progress}%"></div></div>`
+            : `<div class="sap-card__bar"><div class="sap-card__bar-fill" data-sap-id="${t.id}" style="width:${progress}%"></div></div>`
         }
       `;
       sapList.appendChild(card);
@@ -460,6 +482,23 @@
     if (tabName === "savia") renderSap();
   });
 
+  // Keep open panels live: buy buttons enable themselves as ants accrue,
+  // and sap progress bars fill in real time.
+  function refreshOpenPanels() {
+    if (!panelMejoras.hidden) {
+      upgradeList.querySelectorAll(".buy-btn").forEach((btn) => {
+        const id = btn.getAttribute("data-upgrade");
+        btn.disabled = state.ants < upgradeCost(id);
+      });
+    }
+    if (!panelSavia.hidden) {
+      sapList.querySelectorAll(".sap-card__bar-fill").forEach((fill) => {
+        const t = SAP_THRESHOLDS.find((s) => s.id === fill.getAttribute("data-sap-id"));
+        if (t) fill.style.width = Math.min(100, (state.sap / t.threshold) * 100) + "%";
+      });
+    }
+  }
+
   // ---------- Game loop ----------
 
   let lastTick = performance.now();
@@ -475,6 +514,7 @@
 
     checkSapUnlocks();
     renderStats();
+    refreshOpenPanels();
   }
 
   setInterval(tick, TICK_MS);
