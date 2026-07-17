@@ -1,0 +1,1186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1a1108" />
+<title>Climbus — Alpha 0.01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Amaranth:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --broza: #1a1108;
+  --corteza: #4a2f1c;
+  --corteza-dark: #35220f;
+  --ambar: #c17817;
+  --ambar-bright: #e8a13d;
+  --hueso: #e8d5a8;
+  --bermellon: #7a1f1f;
+  --musgo: #5c8a3c;
+
+  --font-logo: "Rye", serif;
+  --font-display: "Fraunces", serif;
+  --font-num: "Amaranth", sans-serif;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--broza);
+  color: var(--hueso);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--font-display);
+}
+
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(193,120,23,0.08), transparent 60%),
+    var(--broza);
+  border-left: 1px solid rgba(193,120,23,0.15);
+  border-right: 1px solid rgba(193,120,23,0.15);
+}
+
+/* ---------- Topbar ---------- */
+
+.topbar {
+  flex: 0 0 auto;
+  padding: 10px 14px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(193,120,23,0.25);
+  background: linear-gradient(180deg, rgba(53,34,15,0.9), rgba(26,17,8,0.6));
+  position: relative;
+  z-index: 5;
+}
+
+.logo {
+  font-family: var(--font-logo);
+  font-size: 26px;
+  letter-spacing: 1px;
+  margin: 0;
+  color: var(--ambar-bright);
+  text-shadow: 0 0 12px rgba(193,120,23,0.5), 0 2px 0 rgba(0,0,0,0.6);
+  transform: rotate(-1.5deg);
+  flex: 0 0 auto;
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-num);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(193,120,23,0.2);
+}
+
+.stat__icon {
+  display: none;
+}
+
+.stat--ants .stat__value { color: var(--bermellon); text-shadow: 0 0 6px rgba(122,31,31,0.4); }
+.stat--sap .stat__value { color: var(--musgo); text-shadow: 0 0 6px rgba(92,138,60,0.4); }
+
+.stat__value {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.stat__rate {
+  font-size: 10px;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+/* ---------- Stage ---------- */
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: var(--corteza);
+}
+
+.veins {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0.9;
+}
+
+.veins path {
+  fill: none;
+  stroke: var(--ambar);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(193,120,23,0.55));
+  opacity: 0;
+  animation: veinPulse 5s ease-in-out infinite;
+}
+
+@keyframes veinPulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.7; }
+}
+
+.bark {
+  position: absolute;
+  inset: -20% -10%;
+  z-index: 0;
+  background-image:
+    repeating-linear-gradient(90deg,
+      rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 2px,
+      transparent 2px, transparent 26px),
+    repeating-linear-gradient(90deg,
+      rgba(232,213,168,0.05) 0px, rgba(232,213,168,0.05) 1px,
+      transparent 1px, transparent 13px),
+    linear-gradient(180deg, var(--corteza) 0%, var(--corteza-dark) 100%);
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+  will-change: transform;
+}
+
+.bark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(3deg, transparent 0 38px, rgba(0,0,0,0.12) 39px 41px),
+    repeating-linear-gradient(-2deg, transparent 0 61px, rgba(0,0,0,0.1) 62px 64px);
+  mix-blend-mode: multiply;
+}
+
+.wind {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 40%, rgba(232,213,168,0.05) 50%, transparent 60%);
+  background-size: 300% 100%;
+  animation: windSweep 9s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes windSweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ---------- Ants ambient ---------- */
+
+.ants-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ant-sprite {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bermellon);
+  box-shadow: -3px 0 0 var(--bermellon), 3px 0 0 var(--bermellon);
+  opacity: 0.85;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* ---------- Climber ---------- */
+
+.climber {
+  position: absolute;
+  left: 50%;
+  bottom: 34%;
+  z-index: 4;
+  transform: translateX(-50%);
+  transition: bottom 0.18s ease-out;
+}
+
+.climber__body {
+  width: 22px;
+  height: 30px;
+  background: linear-gradient(180deg, var(--hueso), #cbb37f);
+  border-radius: 50% 50% 45% 45%;
+  position: relative;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+  animation: climberSway 2.6s ease-in-out infinite;
+}
+
+.climber__head {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--hueso);
+  position: absolute;
+  top: -9px;
+  left: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+@keyframes climberSway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+.climber.climbing .climber__body { animation: climberBoost 0.35s ease-out; }
+@keyframes climberBoost {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-10px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.climber.slipping .climber__body { animation: climberSlip 0.5s ease-in; }
+@keyframes climberSlip {
+  0% { transform: translateY(0) rotate(0); }
+  30% { transform: translateY(6px) rotate(-12deg); }
+  60% { transform: translateY(18px) rotate(10deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+
+/* ---------- Feedback overlays ---------- */
+
+.slip-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 60%, rgba(122,31,31,0.55), transparent 70%);
+  opacity: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.slip-flash.active {
+  animation: slipFlashAnim 0.5s ease-out;
+}
+
+@keyframes slipFlashAnim {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+.toast {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background: rgba(26,17,8,0.92);
+  border: 1px solid var(--ambar);
+  color: var(--hueso);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-num);
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  z-index: 10;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.toast.show {
+  animation: toastAnim 1.1s ease-out;
+}
+
+@keyframes toastAnim {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+}
+
+.stage.shake {
+  animation: stageShake 0.45s ease-in-out;
+}
+
+@keyframes stageShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+/* ---------- Climb zone ---------- */
+
+.climb-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 20px;
+  background: linear-gradient(0deg, rgba(26,17,8,0.85) 30%, transparent);
+}
+
+.climb-btn {
+  font-family: var(--font-logo);
+  letter-spacing: 2px;
+  font-size: 20px;
+  color: var(--broza);
+  background: linear-gradient(180deg, var(--ambar-bright), var(--ambar));
+  border: none;
+  border-radius: 50%;
+  width: 92px;
+  height: 92px;
+  box-shadow: 0 6px 0 #8a570f, 0 8px 16px rgba(0,0,0,0.5);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.climb-btn:active {
+  transform: translateY(5px);
+  box-shadow: 0 1px 0 #8a570f, 0 3px 8px rgba(0,0,0,0.5);
+}
+
+.climb-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--hueso);
+  opacity: 0.5;
+  font-family: var(--font-num);
+}
+
+/* ---------- Height HUD ---------- */
+
+.height-hud {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 10px;
+  background: var(--corteza-dark);
+  border-top: 1px solid rgba(193,120,23,0.3);
+  border-bottom: 1px solid rgba(193,120,23,0.15);
+  font-family: var(--font-num);
+  z-index: 5;
+  position: relative;
+}
+
+.height-current, .height-record, .slip-chance {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+
+.height-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  opacity: 0.55;
+}
+
+.height-num {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--hueso);
+}
+
+.height-current .height-num { color: var(--ambar-bright); }
+.slip-chance .height-num { color: var(--bermellon); }
+
+.height-unit {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+/* ---------- Tabs ---------- */
+
+.tabs {
+  flex: 0 0 auto;
+  display: flex;
+  background: var(--broza);
+  border-bottom: 1px solid rgba(193,120,23,0.2);
+  z-index: 5;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  color: var(--hueso);
+  opacity: 0.5;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+  opacity: 1;
+  color: var(--ambar-bright);
+  border-bottom-color: var(--ambar);
+}
+
+/* ---------- Panels ---------- */
+
+.panel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--broza);
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel__title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin: 0 0 12px;
+  color: var(--hueso);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.panel__sub {
+  font-size: 11px;
+  opacity: 0.45;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.sap-desc {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: -6px 0 14px;
+  line-height: 1.5;
+}
+
+/* Upgrade cards */
+
+.upgrade-list, .sap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upgrade-card {
+  border: 1px solid rgba(193,120,23,0.25);
+  background: linear-gradient(160deg, rgba(74,47,28,0.5), rgba(26,17,8,0.5));
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upgrade-card.locked {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}
+
+.upgrade-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.upgrade-card__name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--hueso);
+}
+
+.upgrade-card__level {
+  font-family: var(--font-num);
+  font-size: 11px;
+  color: var(--ambar);
+  opacity: 0.8;
+}
+
+.upgrade-card__desc {
+  font-size: 11.5px;
+  opacity: 0.65;
+  line-height: 1.4;
+}
+
+.upgrade-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.upgrade-card__effect {
+  font-family: var(--font-num);
+  font-size: 11px;
+  color: var(--musgo);
+}
+
+.buy-btn {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--broza);
+  background: var(--ambar-bright);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.buy-btn:disabled {
+  background: #4a3a24;
+  color: rgba(232,213,168,0.4);
+  cursor: not-allowed;
+}
+
+/* Sap thresholds */
+
+.sap-card {
+  border: 1px solid rgba(92,138,60,0.3);
+  background: linear-gradient(160deg, rgba(92,138,60,0.08), rgba(26,17,8,0.5));
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.sap-card.locked {
+  border-color: rgba(193,120,23,0.15);
+  background: rgba(26,17,8,0.4);
+}
+
+.sap-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.sap-card__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.sap-card.unlocked .sap-card__name { color: var(--musgo); }
+.sap-card.locked .sap-card__name { color: var(--hueso); opacity: 0.6; }
+
+.sap-card__threshold {
+  font-family: var(--font-num);
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.sap-card__desc {
+  font-size: 11.5px;
+  opacity: 0.65;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.sap-card__bar {
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.35);
+  overflow: hidden;
+}
+
+.sap-card__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--musgo), var(--ambar));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.sap-card__status {
+  font-family: var(--font-num);
+  font-size: 10px;
+  color: var(--musgo);
+  margin-top: 4px;
+  opacity: 0.85;
+}
+
+@media (min-width: 500px) {
+  .app { border-left: none; border-right: none; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1 class="logo">Climbus</h1>
+    <div class="stats">
+      <div class="stat stat--ants" title="Hormigas">
+        <span class="stat__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="6" cy="12" r="2.4"/><circle cx="12" cy="10" r="3"/><circle cx="18.5" cy="12.5" r="2.6"/><path d="M8 11 L10 10 M14.5 9.5 L16.5 11.5 M12 13 L12 17 M9 15 L15 15" stroke-width="1" stroke="currentColor" fill="none"/></svg>
+        </span>
+        <span class="stat__value" id="antsValue">0</span>
+        <span class="stat__rate" id="antsRate">+0.0/s</span>
+      </div>
+      <div class="stat stat--sap" title="Savia acumulada">
+        <span class="stat__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2 C12 2 6 11 6 15.5 A6 6 0 0 0 18 15.5 C18 11 12 2 12 2 Z"/></svg>
+        </span>
+        <span class="stat__value" id="sapValue">0.0</span>
+        <span class="stat__rate" id="sapRate">+0.00/s</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <svg class="veins" id="veinsSvg" viewBox="0 0 400 700" preserveAspectRatio="none" aria-hidden="true">
+      <g id="veinsGroup"></g>
+    </svg>
+
+    <div class="bark" id="barkLayer"></div>
+
+    <div class="ants-ambient" id="antsAmbient"></div>
+
+    <div class="wind" aria-hidden="true"></div>
+
+    <div class="climber" id="climber">
+      <div class="climber__body">
+        <div class="climber__head"></div>
+      </div>
+    </div>
+
+    <div class="slip-flash" id="slipFlash"></div>
+    <div class="toast" id="toast"></div>
+
+    <div class="climb-zone" id="climbZone">
+      <button class="climb-btn" id="climbBtn" type="button" aria-label="Subir">
+        <span>SUBIR</span>
+      </button>
+      <p class="climb-hint">Tocá o deslizá hacia arriba</p>
+    </div>
+  </main>
+
+  <div class="height-hud">
+    <div class="height-current">
+      <span class="height-label">altura</span>
+      <span class="height-num" id="heightValue">0</span><span class="height-unit">cm</span>
+    </div>
+    <div class="height-record">
+      <span class="height-label">récord</span>
+      <span class="height-num" id="heightRecordValue">0</span><span class="height-unit">cm</span>
+    </div>
+    <div class="slip-chance">
+      <span class="height-label">resbalón</span>
+      <span class="height-num" id="slipChanceValue">0</span><span class="height-unit">%</span>
+    </div>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="escalar">Escalar</button>
+    <button class="tab" data-tab="mejoras">Mejoras</button>
+    <button class="tab" data-tab="savia">Savia</button>
+  </nav>
+
+  <section class="panel" id="panel-mejoras" hidden>
+    <h2 class="panel__title">Mejoras <span class="panel__sub">pagadas con hormigas</span></h2>
+    <div class="upgrade-list" id="upgradeList"></div>
+  </section>
+
+  <section class="panel" id="panel-savia" hidden>
+    <h2 class="panel__title">Savia <span class="panel__sub">progreso permanente</span></h2>
+    <p class="sap-desc">La savia fluye sola, sin importar lo que hagas. Nunca se gasta — solo desbloquea capacidades nuevas para siempre.</p>
+    <div class="sap-list" id="sapList"></div>
+  </section>
+
+</div>
+<script>
+(() => {
+  "use strict";
+
+  const SAVE_KEY = "climbus_save_v1";
+  const TICK_MS = 200;
+
+  const UPGRADE_DEFS = {
+    colonia: {
+      name: "Colonia",
+      desc: "Nuevas hormigas se suman al hormiguero. Aumenta la generación pasiva.",
+      baseCost: 10,
+      costMult: 1.15,
+      effectLabel: (lvl) => `+${(lvl * 0.4).toFixed(1)} hormigas/s`,
+      locked: () => false,
+    },
+    nudo: {
+      name: "Nudo reforzado",
+      desc: "Refuerza los apoyos en la corteza. Reduce la chance de resbalar.",
+      baseCost: 15,
+      costMult: 1.22,
+      effectLabel: (lvl) => `-${(lvl * 0.9).toFixed(1)}% resbalón`,
+      locked: () => false,
+    },
+    impulso: {
+      name: "Impulso de zancada",
+      desc: "Cada paso avanza más corteza. Aumenta la altura ganada por toque.",
+      baseCost: 40,
+      costMult: 1.18,
+      effectLabel: (lvl) => `+${(lvl * 0.5).toFixed(1)} cm/toque`,
+      locked: (state) => !state.sapUnlocks.impulso,
+    },
+    enjambre: {
+      name: "Enjambre",
+      desc: "El hormiguero se multiplica. Multiplica toda la generación de hormigas.",
+      baseCost: 500,
+      costMult: 1.25,
+      effectLabel: (lvl) => `x${Math.pow(1.12, lvl).toFixed(2)} hormigas/s`,
+      locked: (state) => !state.sapUnlocks.enjambre,
+    },
+  };
+
+  const SAP_THRESHOLDS = [
+    {
+      id: "impulso",
+      threshold: 10,
+      name: "Impulso de zancada",
+      desc: "Desbloquea la mejora Impulso de zancada: cada toque exitoso avanza más altura.",
+    },
+    {
+      id: "percepcion",
+      threshold: 50,
+      name: "Percepción del viento",
+      desc: "Aprendés a leer el viento antes de moverte. Reduce permanentemente la chance base de resbalón en 2%.",
+    },
+    {
+      id: "enjambre",
+      threshold: 150,
+      name: "Enjambre",
+      desc: "Desbloquea la mejora Enjambre: multiplica toda tu generación de hormigas.",
+    },
+    {
+      id: "agarre",
+      threshold: 400,
+      name: "Agarre de savia",
+      desc: "La savia impregna tus manos. Cada 8vo toque es siempre seguro, sin importar el riesgo.",
+    },
+  ];
+
+  function defaultState() {
+    return {
+      version: 1,
+      ants: 0,
+      sap: 0,
+      height: 0,
+      heightRecord: 0,
+      tapCount: 0,
+      upgrades: { colonia: 0, nudo: 0, impulso: 0, enjambre: 0 },
+      sapUnlocks: { impulso: false, percepcion: false, enjambre: false, agarre: false },
+    };
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      const base = defaultState();
+      return {
+        ...base,
+        ...parsed,
+        upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
+        sapUnlocks: { ...base.sapUnlocks, ...(parsed.sapUnlocks || {}) },
+      };
+    } catch (e) {
+      return defaultState();
+    }
+  }
+
+  let state = loadState();
+
+  function saveState() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  }
+
+  // ---------- Derived values ----------
+
+  function antsPerSecond() {
+    const base = 0.4 + state.upgrades.colonia * 0.4;
+    const mult = Math.pow(1.12, state.upgrades.enjambre);
+    return base * mult;
+  }
+
+  function sapPerSecond() {
+    return 0.05 + Math.floor(state.heightRecord / 100) * 0.01;
+  }
+
+  function climbPower() {
+    return 1 + state.upgrades.impulso * 0.5;
+  }
+
+  function slipChance() {
+    let chance = 12 - state.upgrades.nudo * 0.9;
+    if (state.sapUnlocks.percepcion) chance -= 2;
+    return Math.max(3, chance);
+  }
+
+  function upgradeCost(id) {
+    const def = UPGRADE_DEFS[id];
+    const lvl = state.upgrades[id];
+    return Math.ceil(def.baseCost * Math.pow(def.costMult, lvl));
+  }
+
+  // ---------- DOM refs ----------
+
+  const $ = (id) => document.getElementById(id);
+  const antsValue = $("antsValue");
+  const antsRate = $("antsRate");
+  const sapValue = $("sapValue");
+  const sapRate = $("sapRate");
+  const heightValue = $("heightValue");
+  const heightRecordValue = $("heightRecordValue");
+  const slipChanceValue = $("slipChanceValue");
+  const climbBtn = $("climbBtn");
+  const climbZone = $("climbZone");
+  const climber = $("climber");
+  const stage = $("stage");
+  const barkLayer = $("barkLayer");
+  const slipFlash = $("slipFlash");
+  const toast = $("toast");
+  const upgradeList = $("upgradeList");
+  const sapList = $("sapList");
+  const veinsGroup = $("veinsGroup");
+  const antsAmbient = $("antsAmbient");
+  const tabs = $("tabs");
+  const panelMejoras = $("panel-mejoras");
+  const panelSavia = $("panel-savia");
+
+  function fmt(n, decimals = 0) {
+    if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+    if (n >= 10000) return (n / 1000).toFixed(1) + "k";
+    return n.toFixed(decimals);
+  }
+
+  // ---------- Ambient background: sap veins ----------
+
+  const VEIN_PATHS = [
+    "M 40 700 C 60 600 20 520 50 440 C 80 360 30 300 60 220 C 90 140 50 80 70 0",
+    "M 200 700 C 220 640 180 560 210 480 C 240 400 190 340 220 260 C 250 180 210 100 230 0",
+    "M 340 700 C 320 620 360 540 330 460 C 300 380 350 320 320 240 C 290 160 330 90 310 0",
+    "M 120 700 C 140 660 100 600 130 540 C 160 480 110 420 140 360",
+    "M 280 700 C 260 650 300 590 270 530 C 240 470 280 410 250 350",
+  ];
+
+  function buildVeins() {
+    veinsGroup.innerHTML = "";
+    const unlockedCount = Object.values(state.sapUnlocks).filter(Boolean).length;
+    const visibleCount = Math.min(VEIN_PATHS.length, 2 + unlockedCount);
+    for (let i = 0; i < visibleCount; i++) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", VEIN_PATHS[i]);
+      path.style.animationDelay = `${i * 0.7}s`;
+      veinsGroup.appendChild(path);
+    }
+  }
+
+  // ---------- Ambient ants ----------
+
+  function spawnAmbientAnts() {
+    antsAmbient.innerHTML = "";
+    const count = 5;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement("div");
+      el.className = "ant-sprite";
+      const top = 10 + Math.random() * 75;
+      const duration = 6 + Math.random() * 6;
+      const delay = Math.random() * 5;
+      el.style.top = top + "%";
+      el.style.left = "-10px";
+      el.style.animationName = Math.random() > 0.5 ? "antWalkRight" : "antWalkLeft";
+      el.style.animationDuration = duration + "s";
+      el.style.animationDelay = delay + "s";
+      antsAmbient.appendChild(el);
+    }
+  }
+
+  const styleSheet = document.createElement("style");
+  styleSheet.textContent = `
+    @keyframes antWalkRight {
+      0% { transform: translateX(0); opacity: 0; }
+      5% { opacity: 0.85; }
+      95% { opacity: 0.85; }
+      100% { transform: translateX(105vw); opacity: 0; }
+    }
+    @keyframes antWalkLeft {
+      0% { transform: translateX(105vw); opacity: 0; }
+      5% { opacity: 0.85; }
+      95% { opacity: 0.85; }
+      100% { transform: translateX(0); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(styleSheet);
+
+  // ---------- Bark parallax ----------
+
+  function updateBarkPosition() {
+    const offset = (state.height * 2.2) % 400;
+    barkLayer.style.transform = `translateY(${offset}px)`;
+  }
+
+  // ---------- Toast / feedback ----------
+
+  let toastTimer = null;
+  function showToast(msg, kind) {
+    toast.textContent = msg;
+    toast.style.borderColor = kind === "slip" ? "var(--bermellon)" : "var(--ambar)";
+    toast.classList.remove("show");
+    void toast.offsetWidth;
+    toast.classList.add("show");
+  }
+
+  function flashSlip() {
+    slipFlash.classList.remove("active");
+    void slipFlash.offsetWidth;
+    slipFlash.classList.add("active");
+    stage.classList.remove("shake");
+    void stage.offsetWidth;
+    stage.classList.add("shake");
+  }
+
+  // ---------- Climb action ----------
+
+  function doClimb() {
+    state.tapCount++;
+
+    let isSafe = false;
+    if (state.sapUnlocks.agarre && state.tapCount % 8 === 0) {
+      isSafe = true;
+    }
+
+    const roll = Math.random() * 100;
+    const slip = !isSafe && roll < slipChance();
+
+    if (slip) {
+      const loss = Math.max(2, state.height * (0.08 + Math.random() * 0.07));
+      state.height = Math.max(0, state.height - loss);
+      climber.classList.remove("climbing");
+      climber.classList.add("slipping");
+      setTimeout(() => climber.classList.remove("slipping"), 500);
+      flashSlip();
+      showToast(`¡Resbalón! -${loss.toFixed(0)} cm`, "slip");
+    } else {
+      state.height += climbPower();
+      if (state.height > state.heightRecord) state.heightRecord = state.height;
+      climber.classList.remove("slipping");
+      climber.classList.add("climbing");
+      setTimeout(() => climber.classList.remove("climbing"), 350);
+    }
+
+    updateBarkPosition();
+    renderStats();
+    saveState();
+  }
+
+  climbBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    doClimb();
+  });
+
+  let touchStartY = null;
+  climbZone.addEventListener(
+    "touchstart",
+    (e) => {
+      touchStartY = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  climbZone.addEventListener(
+    "touchend",
+    (e) => {
+      if (touchStartY === null) return;
+      const dy = touchStartY - e.changedTouches[0].clientY;
+      touchStartY = null;
+      if (dy > 40) doClimb();
+    },
+    { passive: true }
+  );
+
+  // ---------- Rendering ----------
+
+  function renderStats() {
+    antsValue.textContent = fmt(Math.floor(state.ants));
+    antsRate.textContent = `+${antsPerSecond().toFixed(1)}/s`;
+    sapValue.textContent = fmt(state.sap, 1);
+    sapRate.textContent = `+${sapPerSecond().toFixed(2)}/s`;
+    heightValue.textContent = fmt(Math.floor(state.height));
+    heightRecordValue.textContent = fmt(Math.floor(state.heightRecord));
+    slipChanceValue.textContent = slipChance().toFixed(1);
+  }
+
+  function renderUpgrades() {
+    upgradeList.innerHTML = "";
+    Object.keys(UPGRADE_DEFS).forEach((id) => {
+      const def = UPGRADE_DEFS[id];
+      const locked = def.locked(state);
+      const lvl = state.upgrades[id];
+      const cost = upgradeCost(id);
+
+      const card = document.createElement("div");
+      card.className = "upgrade-card" + (locked ? " locked" : "");
+
+      if (locked) {
+        card.innerHTML = `
+          <div class="upgrade-card__head">
+            <span class="upgrade-card__name">🔒 ${def.name}</span>
+          </div>
+          <div class="upgrade-card__desc">Se desbloquea acumulando savia.</div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="upgrade-card__head">
+            <span class="upgrade-card__name">${def.name}</span>
+            <span class="upgrade-card__level">nivel ${lvl}</span>
+          </div>
+          <div class="upgrade-card__desc">${def.desc}</div>
+          <div class="upgrade-card__row">
+            <span class="upgrade-card__effect">${def.effectLabel(lvl)}</span>
+            <button class="buy-btn" data-upgrade="${id}" ${state.ants < cost ? "disabled" : ""}>
+              ${cost} 🐜
+            </button>
+          </div>
+        `;
+      }
+      upgradeList.appendChild(card);
+    });
+
+    upgradeList.querySelectorAll(".buy-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-upgrade");
+        buyUpgrade(id);
+      });
+    });
+  }
+
+  function buyUpgrade(id) {
+    const cost = upgradeCost(id);
+    if (state.ants < cost) return;
+    state.ants -= cost;
+    state.upgrades[id]++;
+    renderStats();
+    renderUpgrades();
+    saveState();
+  }
+
+  function renderSap() {
+    sapList.innerHTML = "";
+    SAP_THRESHOLDS.forEach((t) => {
+      const unlocked = state.sapUnlocks[t.id];
+      const progress = Math.min(100, (state.sap / t.threshold) * 100);
+
+      const card = document.createElement("div");
+      card.className = "sap-card" + (unlocked ? " unlocked" : " locked");
+      card.innerHTML = `
+        <div class="sap-card__head">
+          <span class="sap-card__name">${unlocked ? "✓" : "🔒"} ${t.name}</span>
+          <span class="sap-card__threshold">${t.threshold} savia</span>
+        </div>
+        <div class="sap-card__desc">${t.desc}</div>
+        ${
+          unlocked
+            ? `<div class="sap-card__status">Desbloqueado permanentemente</div>`
+            : `<div class="sap-card__bar"><div class="sap-card__bar-fill" style="width:${progress}%"></div></div>`
+        }
+      `;
+      sapList.appendChild(card);
+    });
+  }
+
+  function checkSapUnlocks() {
+    let changed = false;
+    SAP_THRESHOLDS.forEach((t) => {
+      if (!state.sapUnlocks[t.id] && state.sap >= t.threshold) {
+        state.sapUnlocks[t.id] = true;
+        changed = true;
+        showToast(`🌿 Savia desbloquea: ${t.name}`, "sap");
+        buildVeins();
+      }
+    });
+    if (changed) {
+      renderUpgrades();
+      renderSap();
+      saveState();
+    }
+  }
+
+  // ---------- Tabs ----------
+
+  tabs.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab");
+    if (!btn) return;
+    const tabName = btn.getAttribute("data-tab");
+
+    tabs.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    btn.classList.add("active");
+
+    panelMejoras.hidden = tabName !== "mejoras";
+    panelSavia.hidden = tabName !== "savia";
+    climbZone.style.display = tabName === "escalar" ? "flex" : "none";
+
+    if (tabName === "mejoras") renderUpgrades();
+    if (tabName === "savia") renderSap();
+  });
+
+  // ---------- Game loop ----------
+
+  let lastTick = performance.now();
+
+  function tick() {
+    const now = performance.now();
+    const dt = (now - lastTick) / 1000;
+    lastTick = now;
+
+    state.ants += antsPerSecond() * dt;
+    state.sap += sapPerSecond() * dt;
+
+    checkSapUnlocks();
+    renderStats();
+  }
+
+  setInterval(tick, TICK_MS);
+
+  window.addEventListener("beforeunload", saveState);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) saveState();
+  });
+  setInterval(saveState, 5000);
+
+  // ---------- Init ----------
+
+  buildVeins();
+  spawnAmbientAnts();
+  updateBarkPosition();
+  renderStats();
+  renderUpgrades();
+  renderSap();
+})();
+
+</script>
+</body>
+</html>
