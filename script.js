@@ -15,10 +15,10 @@
     },
     nudo: {
       name: "Nudo reforzado",
-      desc: "Refuerza los apoyos en la corteza. Reduce la chance de resbalar.",
+      desc: "Refuerza los apoyos en la corteza. Tus manos aguantan más el apuro sin perder agarre.",
       baseCost: 15,
       costMult: 1.22,
-      effectLabel: (lvl) => `-${(lvl * 0.9).toFixed(1)}% resbalón`,
+      effectLabel: (lvl) => `-${Math.min(24, lvl * 3)} desgaste por toque rápido`,
       locked: () => false,
     },
     impulso: {
@@ -50,7 +50,7 @@
       id: "percepcion",
       threshold: 50,
       name: "Percepción del viento",
-      desc: "Aprendés a leer el viento antes de moverte. Reduce permanentemente la chance base de resbalón en 2%.",
+      desc: "Aprendés a leer el viento antes de moverte. Permite tocar más rápido sin perder agarre.",
     },
     {
       id: "enjambre",
@@ -62,7 +62,7 @@
       id: "agarre",
       threshold: 400,
       name: "Agarre de savia",
-      desc: "La savia impregna tus manos. Cada 8vo toque es siempre seguro, sin importar el riesgo.",
+      desc: "La savia impregna tus manos. Cada 8vo toque restaura tu agarre por completo.",
     },
   ];
 
@@ -74,6 +74,8 @@
       height: 0,
       heightRecord: 0,
       tapCount: 0,
+      grip: 100,
+      lastTapTime: null,
       upgrades: { colonia: 0, nudo: 0, impulso: 0, enjambre: 0 },
       sapUnlocks: { impulso: false, percepcion: false, enjambre: false, agarre: false },
     };
@@ -118,10 +120,20 @@
     return 1 + state.upgrades.impulso * 0.5;
   }
 
-  function slipChance() {
-    let chance = 12 - state.upgrades.nudo * 0.9;
-    if (state.sapUnlocks.percepcion) chance -= 2;
-    return Math.max(3, chance);
+  // Grip system: tapping faster than the safe interval drains grip.
+  // Grip hits 0 -> slip. No randomness involved, purely rhythm-based.
+  const BASE_SAFE_INTERVAL_MS = 380;
+  const MIN_SAFE_INTERVAL_MS = 160;
+  const PASSIVE_REGEN_PER_SEC = 8;
+
+  function safeIntervalMs() {
+    let interval = BASE_SAFE_INTERVAL_MS;
+    if (state.sapUnlocks.percepcion) interval -= 80;
+    return Math.max(MIN_SAFE_INTERVAL_MS, interval);
+  }
+
+  function drainPerFastestTap() {
+    return Math.max(10, 34 - state.upgrades.nudo * 3);
   }
 
   function upgradeCost(id) {
@@ -139,7 +151,8 @@
   const sapRate = $("sapRate");
   const heightValue = $("heightValue");
   const heightRecordValue = $("heightRecordValue");
-  const slipChanceValue = $("slipChanceValue");
+  const gripHudValue = $("gripHudValue");
+  const gripFill = $("gripFill");
   const climbBtn = $("climbBtn");
   const climbZone = $("climbZone");
   const climber = $("climber");
@@ -252,22 +265,33 @@
   function doClimb() {
     state.tapCount++;
 
-    let isSafe = false;
-    if (state.sapUnlocks.agarre && state.tapCount % 8 === 0) {
-      isSafe = true;
+    const now = Date.now();
+    const interval = state.lastTapTime === null ? Infinity : now - state.lastTapTime;
+    state.lastTapTime = now;
+
+    const forcedSafe = state.sapUnlocks.agarre && state.tapCount % 8 === 0;
+    const safeInterval = safeIntervalMs();
+
+    if (forcedSafe) {
+      state.grip = 100;
+    } else if (interval >= safeInterval) {
+      state.grip = Math.min(100, state.grip + 18);
+    } else {
+      const speedRatio = 1 - interval / safeInterval; // 0 = paced, 1 = instant retap
+      state.grip = Math.max(0, state.grip - drainPerFastestTap() * speedRatio);
     }
 
-    const roll = Math.random() * 100;
-    const slip = !isSafe && roll < slipChance();
+    const slip = !forcedSafe && state.grip <= 0;
 
     if (slip) {
       const loss = Math.max(2, state.height * (0.08 + Math.random() * 0.07));
       state.height = Math.max(0, state.height - loss);
+      state.grip = 30;
       climber.classList.remove("climbing");
       climber.classList.add("slipping");
       setTimeout(() => climber.classList.remove("slipping"), 500);
       flashSlip();
-      showToast(`¡Resbalón! -${loss.toFixed(0)} cm`, "slip");
+      showToast(`¡Resbalón! Fuiste muy rápido -${loss.toFixed(0)} cm`, "slip");
     } else {
       state.height += climbPower();
       if (state.height > state.heightRecord) state.heightRecord = state.height;
@@ -314,7 +338,13 @@
     sapRate.textContent = `+${sapPerSecond().toFixed(2)}/s`;
     heightValue.textContent = fmt(Math.floor(state.height));
     heightRecordValue.textContent = fmt(Math.floor(state.heightRecord));
-    slipChanceValue.textContent = slipChance().toFixed(1);
+
+    const gripPct = Math.round(state.grip);
+    gripHudValue.textContent = gripPct;
+    gripFill.style.width = gripPct + "%";
+    const low = gripPct < 30;
+    gripHudValue.classList.toggle("low", low);
+    gripFill.classList.toggle("low", low);
   }
 
   function renderUpgrades() {
@@ -441,6 +471,7 @@
 
     state.ants += antsPerSecond() * dt;
     state.sap += sapPerSecond() * dt;
+    state.grip = Math.min(100, state.grip + PASSIVE_REGEN_PER_SEC * dt);
 
     checkSapUnlocks();
     renderStats();

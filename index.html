@@ -54,10 +54,13 @@
     <div class="toast" id="toast"></div>
 
     <div class="climb-zone" id="climbZone">
+      <div class="grip-meter">
+        <div class="grip-meter__fill" id="gripFill"></div>
+      </div>
       <button class="climb-btn" id="climbBtn" type="button" aria-label="Subir">
         <span>SUBIR</span>
       </button>
-      <p class="climb-hint">Tocá o deslizá hacia arriba</p>
+      <p class="climb-hint">Ritmo constante. Muy rápido y perdés agarre.</p>
     </div>
   </main>
 
@@ -70,9 +73,9 @@
       <span class="height-label">récord</span>
       <span class="height-num" id="heightRecordValue">0</span><span class="height-unit">cm</span>
     </div>
-    <div class="slip-chance">
-      <span class="height-label">resbalón</span>
-      <span class="height-num" id="slipChanceValue">0</span><span class="height-unit">%</span>
+    <div class="grip-stat">
+      <span class="height-label">agarre</span>
+      <span class="height-num" id="gripHudValue">100</span><span class="height-unit">%</span>
     </div>
   </div>
 
