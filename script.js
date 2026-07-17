@@ -152,17 +152,19 @@
     return 1 + state.upgrades.impulso * 0.5;
   }
 
-  // Press-and-hold climbing: a quick tap is a short, always-safe hop.
-  // Holding the button climbs continuously, but holding past the safe
-  // window starts costing you height instead. No randomness involved —
-  // purely a matter of how long you keep the button down.
-  const TAP_MAX_MS = 180; // release before this = a short hop, not a hold
-  const HOLD_CLIMB_RATE = 2.4; // cm/s while safely held (scaled by climbPower)
-  const HOLD_RETREAT_RATE = 3.4; // cm/s lost while overextended (scaled by climbPower)
-  const BASE_SAFE_HOLD_MS = 1100;
+  // Charge-and-release climbing: nothing happens while the button is held
+  // down except a charge meter filling up. The jump itself only happens
+  // on release, and its length scales with how long you charged — up to
+  // a cap. Charge past that cap and releasing costs you height instead
+  // of gaining it. No randomness, no movement during the hold itself.
+  const MIN_HOP = 0.6; // jump length at an instant tap/release (scaled by climbPower)
+  const MAX_HOP = 4.5; // jump length at a full, uncapped charge (scaled by climbPower)
+  const BASE_MAX_CHARGE_MS = 1100; // hold time to reach a full charge
+  const OVERCHARGE_WINDOW_MS = 900; // extra hold time to reach max retreat penalty
+  const MAX_OVERCHARGE_RETREAT = 2.6; // retreat at max overcharge (scaled by climbPower)
 
-  function safeHoldMs() {
-    let ms = BASE_SAFE_HOLD_MS + state.upgrades.nudo * 150;
+  function maxChargeMs() {
+    let ms = BASE_MAX_CHARGE_MS + state.upgrades.nudo * 150;
     if (state.sapUnlocks.percepcion) ms += 300;
     return ms;
   }
@@ -304,36 +306,20 @@
     }
   }
 
-  // A quick tap (released before TAP_MAX_MS) is a short, always-safe hop.
-  function doHop() {
-    const prevRecord = state.heightRecord;
-    state.height += climbPower();
-    if (state.height > state.heightRecord) state.heightRecord = state.height;
-    announceRecordIfCrossed(prevRecord);
+  let press = null; // { startTime, rafId }
 
-    climber.classList.remove("slipping", "overextended");
-    climber.classList.add("climbing");
-    setTimeout(() => climber.classList.remove("climbing"), 300);
-
-    updateBarkPosition();
-    renderStats();
-    saveState();
-  }
-
-  let press = null; // { startTime, lastTs, engaged, warned, rafId }
-
-  function updateHoldMeter(holdDuration, safe) {
-    const pct = Math.min(100, (holdDuration / safe) * 100);
+  function updateChargeMeter(holdDuration, cap) {
+    const pct = Math.min(100, (holdDuration / cap) * 100);
     gripHudValue.textContent = Math.round(pct);
     gripFill.style.width = pct + "%";
-    const danger = holdDuration > safe;
-    gripFill.classList.toggle("danger", danger);
-    gripFill.classList.toggle("low", !danger && pct > 65);
-    gripHudValue.classList.toggle("low", danger);
-    climbBtn.classList.toggle("danger", danger);
+    const overcharged = holdDuration > cap;
+    gripFill.classList.toggle("danger", overcharged);
+    gripFill.classList.toggle("low", !overcharged && pct > 65);
+    gripHudValue.classList.toggle("low", overcharged);
+    climbBtn.classList.toggle("danger", overcharged);
   }
 
-  function resetHoldMeter() {
+  function resetChargeMeter() {
     gripHudValue.textContent = "0";
     gripFill.style.width = "0%";
     gripFill.classList.remove("danger", "low");
@@ -341,70 +327,68 @@
     climbBtn.classList.remove("danger");
   }
 
-  function stepHold() {
+  // While held, only the charge meter updates — nothing moves yet.
+  function stepCharge() {
     if (!press) return;
-    const now = performance.now();
-    const dt = (now - press.lastTs) / 1000;
-    press.lastTs = now;
-    const holdDuration = now - press.startTime;
+    const holdDuration = performance.now() - press.startTime;
+    const cap = maxChargeMs();
+    updateChargeMeter(holdDuration, cap);
+    climber.classList.toggle("charging", holdDuration <= cap);
+    climber.classList.toggle("overextended", holdDuration > cap);
+    press.rafId = requestAnimationFrame(stepCharge);
+  }
 
-    if (holdDuration < TAP_MAX_MS) {
-      press.rafId = requestAnimationFrame(stepHold);
-      return;
-    }
-    press.engaged = true;
+  // The jump (or fumble) resolves once, on release.
+  function resolvePress(holdDuration) {
+    const cap = maxChargeMs();
 
-    const safe = safeHoldMs();
-    if (holdDuration <= safe) {
+    if (holdDuration <= cap) {
+      const chargeRatio = cap > 0 ? holdDuration / cap : 1;
+      const gain = (MIN_HOP + chargeRatio * (MAX_HOP - MIN_HOP)) * climbPower();
       const prevRecord = state.heightRecord;
-      state.height += HOLD_CLIMB_RATE * climbPower() * dt;
+      state.height += gain;
       if (state.height > state.heightRecord) state.heightRecord = state.height;
       announceRecordIfCrossed(prevRecord);
+
+      climber.classList.remove("slipping", "overextended", "charging");
       climber.classList.add("climbing");
-      climber.classList.remove("slipping", "overextended");
+      setTimeout(() => climber.classList.remove("climbing"), 300);
     } else {
-      const loss = HOLD_RETREAT_RATE * climbPower() * retreatMultiplier() * dt;
+      const overMs = Math.min(OVERCHARGE_WINDOW_MS, holdDuration - cap);
+      const overRatio = overMs / OVERCHARGE_WINDOW_MS;
+      const loss = overRatio * MAX_OVERCHARGE_RETREAT * climbPower() * retreatMultiplier();
       state.height = Math.max(0, state.height - loss);
-      climber.classList.add("overextended");
-      climber.classList.remove("climbing", "slipping");
-      if (!press.warned) {
-        press.warned = true;
-        flashSlip();
-        if (navigator.vibrate) navigator.vibrate(60);
-        showToast("¡Te estás resbalando! Soltá el botón", "slip");
-      }
+
+      climber.classList.remove("climbing", "charging", "overextended");
+      climber.classList.add("slipping");
+      setTimeout(() => climber.classList.remove("slipping"), 500);
+      flashSlip();
+      if (navigator.vibrate) navigator.vibrate(60);
+      showToast(`¡Te pasaste! Resbalás -${loss.toFixed(0)} cm`, "slip");
     }
 
-    updateHoldMeter(holdDuration, safe);
     updateBarkPosition();
     renderStats();
-
-    press.rafId = requestAnimationFrame(stepHold);
+    resetChargeMeter();
+    saveState();
   }
 
   function onPressStart(e) {
     e.preventDefault();
     if (press) return;
-    press = { startTime: performance.now(), lastTs: performance.now(), engaged: false, warned: false, rafId: null };
+    press = { startTime: performance.now(), rafId: null };
     if (climbBtn.setPointerCapture && e.pointerId !== undefined) {
       try { climbBtn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     }
-    press.rafId = requestAnimationFrame(stepHold);
+    press.rafId = requestAnimationFrame(stepCharge);
   }
 
   function onPressEnd() {
     if (!press) return;
     cancelAnimationFrame(press.rafId);
-    const engaged = press.engaged;
+    const holdDuration = performance.now() - press.startTime;
     press = null;
-
-    if (!engaged) {
-      doHop();
-    } else {
-      climber.classList.remove("climbing", "overextended");
-      resetHoldMeter();
-      saveState();
-    }
+    resolvePress(holdDuration);
   }
 
   climbBtn.addEventListener("pointerdown", onPressStart);
@@ -416,6 +400,8 @@
     if (press && e.pointerType === "mouse") onPressEnd();
   });
   climbBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+  climbBtn.addEventListener("selectstart", (e) => e.preventDefault());
+  climbBtn.addEventListener("dragstart", (e) => e.preventDefault());
 
   let keyHeld = false;
   document.addEventListener("keydown", (e) => {
