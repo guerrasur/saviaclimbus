@@ -6,6 +6,7 @@
   --ambar-bright: #e8a13d;
   --hueso: #e8d5a8;
   --bermellon: #7a1f1f;
+  --bermellon-bright: #e2432a;
   --musgo: #5c8a3c;
 
   --font-logo: "Rye", serif;
@@ -93,7 +94,11 @@ body {
   display: none;
 }
 
-.stat--ants .stat__value { color: var(--bermellon); text-shadow: 0 0 6px rgba(122,31,31,0.4); }
+.stat--ants .stat__value {
+  color: var(--bermellon-bright);
+  text-shadow: 0 0 8px rgba(226,67,42,0.6);
+  font-size: 19px;
+}
 .stat--sap .stat__value { color: var(--musgo); text-shadow: 0 0 6px rgba(92,138,60,0.4); }
 
 .stat__value {
@@ -194,12 +199,15 @@ body {
 
 .ant-sprite {
   position: absolute;
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--bermellon);
-  box-shadow: -3px 0 0 var(--bermellon), 3px 0 0 var(--bermellon);
-  opacity: 0.85;
+  background: var(--bermellon-bright);
+  box-shadow:
+    -5px 0 0 -1px var(--bermellon-bright),
+    5px 0 0 -1px var(--bermellon-bright),
+    0 0 5px rgba(226,67,42,0.7);
+  opacity: 0.95;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
@@ -254,6 +262,15 @@ body {
   30% { transform: translateY(6px) rotate(-12deg); }
   60% { transform: translateY(18px) rotate(10deg); }
   100% { transform: translateY(0) rotate(0); }
+}
+
+.climber.overextended .climber__body {
+  animation: climberStrain 0.35s ease-in-out infinite;
+  filter: brightness(0.85) saturate(1.3);
+}
+@keyframes climberStrain {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(3px) rotate(4deg); }
 }
 
 /* ---------- Feedback overlays ---------- */
@@ -345,14 +362,24 @@ body {
 
 .grip-meter__fill {
   height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, var(--musgo), var(--ambar-bright));
+  width: 0%;
+  background: linear-gradient(90deg, var(--ambar), var(--ambar-bright));
   border-radius: 5px;
-  transition: width 0.15s ease, background 0.3s ease;
+  transition: width 0.1s linear, background 0.2s ease;
 }
 
 .grip-meter__fill.low {
   background: linear-gradient(90deg, var(--bermellon), var(--ambar));
+}
+
+.grip-meter__fill.danger {
+  background: var(--bermellon-bright);
+  animation: gripDanger 0.4s ease-in-out infinite;
+}
+
+@keyframes gripDanger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 .climb-btn {
@@ -368,12 +395,23 @@ body {
   box-shadow: 0 6px 0 #8a570f, 0 8px 16px rgba(0,0,0,0.5);
   cursor: pointer;
   user-select: none;
+  touch-action: none;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 
 .climb-btn:active {
   transform: translateY(5px);
   box-shadow: 0 1px 0 #8a570f, 0 3px 8px rgba(0,0,0,0.5);
+}
+
+.climb-btn.danger {
+  background: linear-gradient(180deg, var(--bermellon-bright), var(--bermellon));
+  animation: climbBtnDanger 0.4s ease-in-out infinite;
+}
+
+@keyframes climbBtnDanger {
+  0%, 100% { box-shadow: 0 6px 0 #5a1414, 0 8px 16px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 6px 0 #5a1414, 0 8px 24px rgba(226,67,42,0.6); }
 }
 
 .climb-hint {
@@ -440,6 +478,7 @@ body {
 }
 
 .tab {
+  position: relative;
   flex: 1;
   padding: 10px 0;
   background: none;
@@ -452,6 +491,30 @@ body {
   letter-spacing: 0.5px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
+}
+
+.tab-badge {
+  position: absolute;
+  top: 3px;
+  right: 22%;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--musgo);
+  color: var(--broza);
+  font-family: var(--font-num);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 0 6px rgba(92,138,60,0.7);
+  animation: badgePulse 1.6s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
 }
 
 .tab.active {
@@ -585,6 +648,38 @@ body {
 .sap-card.locked {
   border-color: rgba(193,120,23,0.15);
   background: rgba(26,17,8,0.4);
+}
+
+.sap-card.claimable {
+  border-color: var(--musgo);
+  background: linear-gradient(160deg, rgba(92,138,60,0.22), rgba(26,17,8,0.5));
+  box-shadow: 0 0 14px rgba(92,138,60,0.35);
+  animation: claimableGlow 1.8s ease-in-out infinite;
+}
+
+@keyframes claimableGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(92,138,60,0.25); }
+  50% { box-shadow: 0 0 18px rgba(92,138,60,0.55); }
+}
+
+.sap-card.claimable .sap-card__name { color: var(--musgo); }
+
+.claim-btn {
+  width: 100%;
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: var(--broza);
+  background: linear-gradient(180deg, var(--musgo), #497030);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.claim-btn:active {
+  transform: translateY(1px);
 }
 
 .sap-card__head {

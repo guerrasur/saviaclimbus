@@ -60,7 +60,7 @@
       <button class="climb-btn" id="climbBtn" type="button" aria-label="Subir">
         <span>SUBIR</span>
       </button>
-      <p class="climb-hint">Ritmo constante. Muy rápido y perdés agarre.</p>
+      <p class="climb-hint">Tocá para un salto corto. Mantené presionado para subir — no te excedas.</p>
     </div>
   </main>
 
@@ -74,15 +74,18 @@
       <span class="height-num" id="heightRecordValue">0</span><span class="height-unit">cm</span>
     </div>
     <div class="grip-stat">
-      <span class="height-label">agarre</span>
-      <span class="height-num" id="gripHudValue">100</span><span class="height-unit">%</span>
+      <span class="height-label">aguante</span>
+      <span class="height-num" id="gripHudValue">0</span><span class="height-unit">%</span>
     </div>
   </div>
 
   <nav class="tabs" id="tabs">
     <button class="tab active" data-tab="escalar">Escalar</button>
     <button class="tab" data-tab="mejoras">Mejoras</button>
-    <button class="tab" data-tab="savia">Savia</button>
+    <button class="tab" data-tab="savia">
+      Savia
+      <span class="tab-badge" id="saviaBadge" hidden>0</span>
+    </button>
   </nav>
 
   <section class="panel" id="panel-mejoras" hidden>

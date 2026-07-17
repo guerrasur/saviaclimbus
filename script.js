@@ -15,10 +15,10 @@
     },
     nudo: {
       name: "Nudo reforzado",
-      desc: "Refuerza los apoyos en la corteza. Tus manos aguantan más el apuro sin perder agarre.",
+      desc: "Refuerza los apoyos en la corteza. Podés mantenerte agarrado más tiempo antes de resbalar.",
       baseCost: 15,
       costMult: 1.22,
-      effectLabel: (lvl) => `-${Math.min(24, lvl * 3)} desgaste por toque rápido`,
+      effectLabel: (lvl) => `+${(lvl * 0.15).toFixed(2)}s de aguante seguro`,
       locked: () => false,
     },
     impulso: {
@@ -50,7 +50,7 @@
       id: "percepcion",
       threshold: 50,
       name: "Percepción del viento",
-      desc: "Aprendés a leer el viento antes de moverte. Permite tocar más rápido sin perder agarre.",
+      desc: "Aprendés a leer el viento antes de moverte. Extiende el tiempo que podés mantenerte agarrado sin riesgo.",
     },
     {
       id: "enjambre",
@@ -62,7 +62,7 @@
       id: "agarre",
       threshold: 400,
       name: "Agarre de savia",
-      desc: "La savia impregna tus manos. Cada 8vo toque restaura tu agarre por completo.",
+      desc: "La savia impregna tus manos. Reduce a la mitad lo que retrocedés si te excedés sosteniendo el agarre.",
     },
   ];
 
@@ -73,11 +73,9 @@
       sap: 0,
       height: 0,
       heightRecord: 0,
-      tapCount: 0,
-      grip: 100,
-      lastTapTime: null,
       upgrades: { colonia: 0, nudo: 0, impulso: 0, enjambre: 0 },
       sapUnlocks: { impulso: false, percepcion: false, enjambre: false, agarre: false },
+      sapNotified: { impulso: false, percepcion: false, enjambre: false, agarre: false },
     };
   }
 
@@ -92,6 +90,7 @@
         ...parsed,
         upgrades: { ...base.upgrades, ...(parsed.upgrades || {}) },
         sapUnlocks: { ...base.sapUnlocks, ...(parsed.sapUnlocks || {}) },
+        sapNotified: { ...base.sapNotified, ...(parsed.sapNotified || {}) },
       };
     } catch (e) {
       return defaultState();
@@ -100,7 +99,40 @@
 
   let state = loadState();
 
+  // Merge with whatever is currently on disk before writing, taking the
+  // higher value for anything that should only ever grow. Without this,
+  // a second tab (or a save written while this tab was in the background)
+  // gets silently clobbered by this tab's own autosave/beforeunload.
   function saveState() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const other = JSON.parse(raw);
+        state.ants = Math.max(state.ants, other.ants || 0);
+        state.sap = Math.max(state.sap, other.sap || 0);
+        // height (current climb position) is intentionally NOT merged —
+        // it can legitimately decrease (slip/overextension), so this
+        // tab's own value is authoritative. Only the record is monotonic.
+        state.heightRecord = Math.max(state.heightRecord, other.heightRecord || 0);
+        if (other.upgrades) {
+          Object.keys(state.upgrades).forEach((k) => {
+            state.upgrades[k] = Math.max(state.upgrades[k], other.upgrades[k] || 0);
+          });
+        }
+        if (other.sapUnlocks) {
+          Object.keys(state.sapUnlocks).forEach((k) => {
+            state.sapUnlocks[k] = state.sapUnlocks[k] || !!other.sapUnlocks[k];
+          });
+        }
+        if (other.sapNotified) {
+          Object.keys(state.sapNotified).forEach((k) => {
+            state.sapNotified[k] = state.sapNotified[k] || !!other.sapNotified[k];
+          });
+        }
+      }
+    } catch (e) {
+      // Corrupt save on disk — just write what we have in memory.
+    }
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   }
 
@@ -120,20 +152,23 @@
     return 1 + state.upgrades.impulso * 0.5;
   }
 
-  // Grip system: tapping faster than the safe interval drains grip.
-  // Grip hits 0 -> slip. No randomness involved, purely rhythm-based.
-  const BASE_SAFE_INTERVAL_MS = 380;
-  const MIN_SAFE_INTERVAL_MS = 160;
-  const PASSIVE_REGEN_PER_SEC = 8;
+  // Press-and-hold climbing: a quick tap is a short, always-safe hop.
+  // Holding the button climbs continuously, but holding past the safe
+  // window starts costing you height instead. No randomness involved —
+  // purely a matter of how long you keep the button down.
+  const TAP_MAX_MS = 180; // release before this = a short hop, not a hold
+  const HOLD_CLIMB_RATE = 2.4; // cm/s while safely held (scaled by climbPower)
+  const HOLD_RETREAT_RATE = 3.4; // cm/s lost while overextended (scaled by climbPower)
+  const BASE_SAFE_HOLD_MS = 1100;
 
-  function safeIntervalMs() {
-    let interval = BASE_SAFE_INTERVAL_MS;
-    if (state.sapUnlocks.percepcion) interval -= 80;
-    return Math.max(MIN_SAFE_INTERVAL_MS, interval);
+  function safeHoldMs() {
+    let ms = BASE_SAFE_HOLD_MS + state.upgrades.nudo * 150;
+    if (state.sapUnlocks.percepcion) ms += 300;
+    return ms;
   }
 
-  function drainPerFastestTap() {
-    return Math.max(10, 34 - state.upgrades.nudo * 3);
+  function retreatMultiplier() {
+    return state.sapUnlocks.agarre ? 0.5 : 1;
   }
 
   function upgradeCost(id) {
@@ -167,6 +202,7 @@
   const tabs = $("tabs");
   const panelMejoras = $("panel-mejoras");
   const panelSavia = $("panel-savia");
+  const saviaBadge = $("saviaBadge");
 
   function fmt(n, decimals = 0) {
     if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
@@ -262,92 +298,138 @@
 
   // ---------- Climb action ----------
 
-  function doClimb() {
-    state.tapCount++;
-
-    const now = Date.now();
-    const interval = state.lastTapTime === null ? Infinity : now - state.lastTapTime;
-    state.lastTapTime = now;
-
-    const forcedSafe = state.sapUnlocks.agarre && state.tapCount % 8 === 0;
-    const safeInterval = safeIntervalMs();
-
-    if (forcedSafe) {
-      state.grip = 100;
-    } else if (interval >= safeInterval) {
-      state.grip = Math.min(100, state.grip + 18);
-    } else {
-      const speedRatio = 1 - interval / safeInterval; // 0 = paced, 1 = instant retap
-      state.grip = Math.max(0, state.grip - drainPerFastestTap() * speedRatio);
+  function announceRecordIfCrossed(prevRecord) {
+    if (Math.floor(state.heightRecord / 100) > Math.floor(prevRecord / 100)) {
+      showToast(`Nuevo récord: ${Math.floor(state.heightRecord)} cm`, "record");
     }
+  }
 
-    const slip = !forcedSafe && state.grip <= 0;
+  // A quick tap (released before TAP_MAX_MS) is a short, always-safe hop.
+  function doHop() {
+    const prevRecord = state.heightRecord;
+    state.height += climbPower();
+    if (state.height > state.heightRecord) state.heightRecord = state.height;
+    announceRecordIfCrossed(prevRecord);
 
-    if (slip) {
-      const loss = Math.max(2, state.height * (0.08 + Math.random() * 0.07));
-      state.height = Math.max(0, state.height - loss);
-      state.grip = 30;
-      climber.classList.remove("climbing");
-      climber.classList.add("slipping");
-      setTimeout(() => climber.classList.remove("slipping"), 500);
-      flashSlip();
-      if (navigator.vibrate) navigator.vibrate(80);
-      showToast(`¡Resbalón! Fuiste muy rápido -${loss.toFixed(0)} cm`, "slip");
-    } else {
-      const prevRecord = state.heightRecord;
-      state.height += climbPower();
-      if (state.height > state.heightRecord) state.heightRecord = state.height;
-      if (Math.floor(state.heightRecord / 100) > Math.floor(prevRecord / 100)) {
-        showToast(`Nuevo récord: ${Math.floor(state.heightRecord)} cm`, "record");
-      }
-      climber.classList.remove("slipping");
-      climber.classList.add("climbing");
-      setTimeout(() => climber.classList.remove("climbing"), 350);
-    }
+    climber.classList.remove("slipping", "overextended");
+    climber.classList.add("climbing");
+    setTimeout(() => climber.classList.remove("climbing"), 300);
 
     updateBarkPosition();
     renderStats();
     saveState();
   }
 
-  // A swipe that starts on the button also fires a click on touchend;
-  // suppress the click briefly so one gesture never climbs twice.
-  let suppressClickUntil = 0;
+  let press = null; // { startTime, lastTs, engaged, warned, rafId }
 
-  climbBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    if (Date.now() < suppressClickUntil) return;
-    doClimb();
-  });
+  function updateHoldMeter(holdDuration, safe) {
+    const pct = Math.min(100, (holdDuration / safe) * 100);
+    gripHudValue.textContent = Math.round(pct);
+    gripFill.style.width = pct + "%";
+    const danger = holdDuration > safe;
+    gripFill.classList.toggle("danger", danger);
+    gripFill.classList.toggle("low", !danger && pct > 65);
+    gripHudValue.classList.toggle("low", danger);
+    climbBtn.classList.toggle("danger", danger);
+  }
 
-  let touchStartY = null;
-  climbZone.addEventListener(
-    "touchstart",
-    (e) => {
-      touchStartY = e.touches[0].clientY;
-    },
-    { passive: true }
-  );
-  climbZone.addEventListener(
-    "touchend",
-    (e) => {
-      if (touchStartY === null) return;
-      const dy = touchStartY - e.changedTouches[0].clientY;
-      touchStartY = null;
-      if (dy > 40) {
-        suppressClickUntil = Date.now() + 400;
-        doClimb();
-      }
-    },
-    { passive: true }
-  );
+  function resetHoldMeter() {
+    gripHudValue.textContent = "0";
+    gripFill.style.width = "0%";
+    gripFill.classList.remove("danger", "low");
+    gripHudValue.classList.remove("low");
+    climbBtn.classList.remove("danger");
+  }
 
-  document.addEventListener("keydown", (e) => {
-    if (e.repeat) return;
-    if (e.code === "Space" || e.code === "ArrowUp") {
-      e.preventDefault();
-      doClimb();
+  function stepHold() {
+    if (!press) return;
+    const now = performance.now();
+    const dt = (now - press.lastTs) / 1000;
+    press.lastTs = now;
+    const holdDuration = now - press.startTime;
+
+    if (holdDuration < TAP_MAX_MS) {
+      press.rafId = requestAnimationFrame(stepHold);
+      return;
     }
+    press.engaged = true;
+
+    const safe = safeHoldMs();
+    if (holdDuration <= safe) {
+      const prevRecord = state.heightRecord;
+      state.height += HOLD_CLIMB_RATE * climbPower() * dt;
+      if (state.height > state.heightRecord) state.heightRecord = state.height;
+      announceRecordIfCrossed(prevRecord);
+      climber.classList.add("climbing");
+      climber.classList.remove("slipping", "overextended");
+    } else {
+      const loss = HOLD_RETREAT_RATE * climbPower() * retreatMultiplier() * dt;
+      state.height = Math.max(0, state.height - loss);
+      climber.classList.add("overextended");
+      climber.classList.remove("climbing", "slipping");
+      if (!press.warned) {
+        press.warned = true;
+        flashSlip();
+        if (navigator.vibrate) navigator.vibrate(60);
+        showToast("¡Te estás resbalando! Soltá el botón", "slip");
+      }
+    }
+
+    updateHoldMeter(holdDuration, safe);
+    updateBarkPosition();
+    renderStats();
+
+    press.rafId = requestAnimationFrame(stepHold);
+  }
+
+  function onPressStart(e) {
+    e.preventDefault();
+    if (press) return;
+    press = { startTime: performance.now(), lastTs: performance.now(), engaged: false, warned: false, rafId: null };
+    if (climbBtn.setPointerCapture && e.pointerId !== undefined) {
+      try { climbBtn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    }
+    press.rafId = requestAnimationFrame(stepHold);
+  }
+
+  function onPressEnd() {
+    if (!press) return;
+    cancelAnimationFrame(press.rafId);
+    const engaged = press.engaged;
+    press = null;
+
+    if (!engaged) {
+      doHop();
+    } else {
+      climber.classList.remove("climbing", "overextended");
+      resetHoldMeter();
+      saveState();
+    }
+  }
+
+  climbBtn.addEventListener("pointerdown", onPressStart);
+  climbBtn.addEventListener("pointerup", onPressEnd);
+  climbBtn.addEventListener("pointercancel", onPressEnd);
+  climbBtn.addEventListener("pointerleave", (e) => {
+    // Only end the press if the pointer actually left without a capture
+    // (touch devices keep capture on the button; mouse can drag off it).
+    if (press && e.pointerType === "mouse") onPressEnd();
+  });
+  climbBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  let keyHeld = false;
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Space" && e.code !== "ArrowUp") return;
+    e.preventDefault();
+    if (e.repeat) return;
+    if (keyHeld) return;
+    keyHeld = true;
+    onPressStart({ preventDefault() {} });
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.code !== "Space" && e.code !== "ArrowUp") return;
+    keyHeld = false;
+    onPressEnd();
   });
 
   // ---------- Rendering ----------
@@ -359,13 +441,6 @@
     sapRate.textContent = `+${sapPerSecond().toFixed(2)}/s`;
     heightValue.textContent = fmt(Math.floor(state.height));
     heightRecordValue.textContent = fmt(Math.floor(state.heightRecord));
-
-    const gripPct = Math.round(state.grip);
-    gripHudValue.textContent = gripPct;
-    gripFill.style.width = gripPct + "%";
-    const low = gripPct < 30;
-    gripHudValue.classList.toggle("low", low);
-    gripFill.classList.toggle("low", low);
   }
 
   function renderUpgrades() {
@@ -427,41 +502,70 @@
     sapList.innerHTML = "";
     SAP_THRESHOLDS.forEach((t) => {
       const unlocked = state.sapUnlocks[t.id];
+      const claimable = !unlocked && state.sap >= t.threshold;
       const progress = Math.min(100, (state.sap / t.threshold) * 100);
 
       const card = document.createElement("div");
-      card.className = "sap-card" + (unlocked ? " unlocked" : " locked");
+      card.className = "sap-card" + (unlocked ? " unlocked" : claimable ? " claimable" : " locked");
       card.innerHTML = `
         <div class="sap-card__head">
-          <span class="sap-card__name">${unlocked ? "✓" : "🔒"} ${t.name}</span>
+          <span class="sap-card__name">${unlocked ? "✓" : claimable ? "🌿" : "🔒"} ${t.name}</span>
           <span class="sap-card__threshold">${t.threshold} savia</span>
         </div>
         <div class="sap-card__desc">${t.desc}</div>
         ${
           unlocked
             ? `<div class="sap-card__status">Desbloqueado permanentemente</div>`
+            : claimable
+            ? `<button class="claim-btn" data-claim="${t.id}">Desbloquear</button>`
             : `<div class="sap-card__bar"><div class="sap-card__bar-fill" data-sap-id="${t.id}" style="width:${progress}%"></div></div>`
         }
       `;
       sapList.appendChild(card);
     });
+
+    sapList.querySelectorAll(".claim-btn").forEach((btn) => {
+      btn.addEventListener("click", () => claimSap(btn.getAttribute("data-claim")));
+    });
   }
 
-  function checkSapUnlocks() {
+  function updateSapBadge() {
+    const pending = SAP_THRESHOLDS.filter(
+      (t) => !state.sapUnlocks[t.id] && state.sap >= t.threshold
+    ).length;
+    saviaBadge.textContent = pending;
+    saviaBadge.hidden = pending === 0;
+  }
+
+  // Sap thresholds don't unlock themselves: crossing one only flags it
+  // as ready and notifies the player. The player must open Savia and
+  // tap "Desbloquear" to actually claim the effect.
+  function checkSapReady() {
     let changed = false;
     SAP_THRESHOLDS.forEach((t) => {
-      if (!state.sapUnlocks[t.id] && state.sap >= t.threshold) {
-        state.sapUnlocks[t.id] = true;
+      if (!state.sapUnlocks[t.id] && !state.sapNotified[t.id] && state.sap >= t.threshold) {
+        state.sapNotified[t.id] = true;
         changed = true;
-        showToast(`🌿 Savia desbloquea: ${t.name}`, "sap");
-        buildVeins();
+        showToast(`🌿 Savia lista para desbloquear: ${t.name}`, "sap");
       }
     });
     if (changed) {
-      renderUpgrades();
-      renderSap();
+      updateSapBadge();
+      if (!panelSavia.hidden) renderSap();
       saveState();
     }
+  }
+
+  function claimSap(id) {
+    const t = SAP_THRESHOLDS.find((s) => s.id === id);
+    if (!t || state.sapUnlocks[id] || state.sap < t.threshold) return;
+    state.sapUnlocks[id] = true;
+    buildVeins();
+    showToast(`✓ ${t.name} desbloqueado`, "sap");
+    renderUpgrades();
+    renderSap();
+    updateSapBadge();
+    saveState();
   }
 
   // ---------- Tabs ----------
@@ -510,9 +614,8 @@
 
     state.ants += antsPerSecond() * dt;
     state.sap += sapPerSecond() * dt;
-    state.grip = Math.min(100, state.grip + PASSIVE_REGEN_PER_SEC * dt);
 
-    checkSapUnlocks();
+    checkSapReady();
     renderStats();
     refreshOpenPanels();
   }
@@ -533,4 +636,5 @@
   renderStats();
   renderUpgrades();
   renderSap();
+  updateSapBadge();
 })();
