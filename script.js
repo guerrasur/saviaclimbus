@@ -604,7 +604,11 @@
 
     panelMejoras.hidden = tabName !== "mejoras";
     panelSavia.hidden = tabName !== "savia";
-    climbZone.style.display = tabName === "escalar" ? "flex" : "none";
+    // .stage has no in-flow content (everything in it is absolutely
+    // positioned), so leaving it displayed while a panel is also visible
+    // makes it collapse to a tiny sliver that still fights the panel for
+    // space instead of disappearing. Hide it outright off the Escalar tab.
+    stage.style.display = tabName === "escalar" ? "" : "none";
 
     if (tabName === "mejoras") renderUpgrades();
     if (tabName === "savia") renderSap();

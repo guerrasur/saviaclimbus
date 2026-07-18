@@ -27,6 +27,13 @@ html, body {
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  /* This is a game UI, not a document — nothing in it should ever
+     trigger the native text-selection loupe/callout on a long press
+     (which is exactly what a charge-hold on SUBIR looks like to iOS). */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {
