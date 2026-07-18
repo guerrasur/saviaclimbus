@@ -10,23 +10,23 @@
       desc: "Nuevas hormigas se suman al hormiguero. Aumenta la generación pasiva.",
       baseCost: 10,
       costMult: 1.15,
-      effectLabel: (lvl) => `+${(lvl * 0.4).toFixed(1)} hormigas/s`,
+      effectLabel: (lvl) => `+${(lvl * 0.8).toFixed(1)} hormigas/s`,
       locked: () => false,
     },
     nudo: {
       name: "Nudo reforzado",
-      desc: "Refuerza los apoyos en la corteza. Podés mantenerte agarrado más tiempo antes de resbalar.",
+      desc: "Refuerza los apoyos en la corteza. Podés cargar el salto más tiempo antes de pasarte.",
       baseCost: 15,
       costMult: 1.22,
-      effectLabel: (lvl) => `+${(lvl * 0.15).toFixed(2)}s de aguante seguro`,
+      effectLabel: (lvl) => `+${(lvl * 0.22).toFixed(2)}s de carga segura`,
       locked: () => false,
     },
     impulso: {
       name: "Impulso de zancada",
-      desc: "Cada paso avanza más corteza. Aumenta la altura ganada por toque.",
+      desc: "Cada paso avanza más corteza. Multiplica la altura de cada salto.",
       baseCost: 40,
       costMult: 1.18,
-      effectLabel: (lvl) => `+${(lvl * 0.5).toFixed(1)} cm/toque`,
+      effectLabel: (lvl) => `x${(1 + lvl * 0.35).toFixed(2)} altura por salto`,
       locked: (state) => !state.sapUnlocks.impulso,
     },
     enjambre: {
@@ -139,7 +139,7 @@
   // ---------- Derived values ----------
 
   function antsPerSecond() {
-    const base = 0.4 + state.upgrades.colonia * 0.4;
+    const base = 0.6 + state.upgrades.colonia * 0.8;
     const mult = Math.pow(1.12, state.upgrades.enjambre);
     return base * mult;
   }
@@ -149,7 +149,7 @@
   }
 
   function climbPower() {
-    return 1 + state.upgrades.impulso * 0.5;
+    return 1 + state.upgrades.impulso * 0.35;
   }
 
   // Charge-and-release climbing: nothing happens while the button is held
@@ -157,14 +157,14 @@
   // on release, and its length scales with how long you charged — up to
   // a cap. Charge past that cap and releasing costs you height instead
   // of gaining it. No randomness, no movement during the hold itself.
-  const MIN_HOP = 0.6; // jump length at an instant tap/release (scaled by climbPower)
-  const MAX_HOP = 4.5; // jump length at a full, uncapped charge (scaled by climbPower)
+  const MIN_HOP = 1.6; // jump length at an instant tap/release (scaled by climbPower)
+  const MAX_HOP = 9; // jump length at a full, uncapped charge (scaled by climbPower)
   const BASE_MAX_CHARGE_MS = 1100; // hold time to reach a full charge
   const OVERCHARGE_WINDOW_MS = 900; // extra hold time to reach max retreat penalty
-  const MAX_OVERCHARGE_RETREAT = 2.6; // retreat at max overcharge (scaled by climbPower)
+  const MAX_OVERCHARGE_RETREAT = 5; // retreat at max overcharge (scaled by climbPower)
 
   function maxChargeMs() {
-    let ms = BASE_MAX_CHARGE_MS + state.upgrades.nudo * 150;
+    let ms = BASE_MAX_CHARGE_MS + state.upgrades.nudo * 220;
     if (state.sapUnlocks.percepcion) ms += 300;
     return ms;
   }
@@ -200,6 +200,7 @@
   const upgradeList = $("upgradeList");
   const sapList = $("sapList");
   const veinsGroup = $("veinsGroup");
+  const veinsSvg = $("veinsSvg");
   const antsAmbient = $("antsAmbient");
   const tabs = $("tabs");
   const panelMejoras = $("panel-mejoras");
@@ -214,6 +215,9 @@
 
   // ---------- Ambient background: sap veins ----------
 
+  // One tile's worth of veins, meant to repeat seamlessly every
+  // VEIN_TILE_HEIGHT viewBox units so the pattern can scroll forever.
+  const VEIN_TILE_HEIGHT = 700;
   const VEIN_PATHS = [
     "M 40 700 C 60 600 20 520 50 440 C 80 360 30 300 60 220 C 90 140 50 80 70 0",
     "M 200 700 C 220 640 180 560 210 480 C 240 400 190 340 220 260 C 250 180 210 100 230 0",
@@ -226,12 +230,19 @@
     veinsGroup.innerHTML = "";
     const unlockedCount = Object.values(state.sapUnlocks).filter(Boolean).length;
     const visibleCount = Math.min(VEIN_PATHS.length, 2 + unlockedCount);
-    for (let i = 0; i < visibleCount; i++) {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", VEIN_PATHS[i]);
-      path.style.animationDelay = `${i * 0.7}s`;
-      veinsGroup.appendChild(path);
-    }
+    // Stack three copies of the tile (above, current, below) so panning
+    // the viewBox within one tile height always shows continuous veins.
+    [-1, 0, 1].forEach((tileOffset) => {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("transform", `translate(0, ${tileOffset * VEIN_TILE_HEIGHT})`);
+      for (let i = 0; i < visibleCount; i++) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", VEIN_PATHS[i]);
+        path.style.animationDelay = `${i * 0.7}s`;
+        g.appendChild(path);
+      }
+      veinsGroup.appendChild(g);
+    });
   }
 
   // ---------- Ambient ants ----------
@@ -241,42 +252,69 @@
     const count = Math.min(12, 4 + state.upgrades.colonia);
     for (let i = 0; i < count; i++) {
       const el = document.createElement("div");
+      const goingRight = Math.random() > 0.5;
       el.className = "ant-sprite";
       const top = 10 + Math.random() * 75;
-      const duration = 6 + Math.random() * 6;
-      const delay = Math.random() * 5;
+      const duration = 5 + Math.random() * 5;
+      const delay = Math.random() * 6;
       el.style.top = top + "%";
-      el.style.left = "-10px";
-      el.style.animationName = Math.random() > 0.5 ? "antWalkRight" : "antWalkLeft";
+      if (goingRight) {
+        el.style.left = "-16px";
+      } else {
+        el.style.right = "-16px";
+      }
+      el.style.animationName = goingRight ? "antWalkRight" : "antWalkLeft";
       el.style.animationDuration = duration + "s";
       el.style.animationDelay = delay + "s";
       antsAmbient.appendChild(el);
     }
   }
 
+  // Ants scurry, not glide: horizontal travel plus small irregular
+  // vertical bobbing, so they read as little creatures, not a line
+  // sweeping across the screen.
   const styleSheet = document.createElement("style");
   styleSheet.textContent = `
     @keyframes antWalkRight {
-      0% { transform: translateX(0); opacity: 0; }
-      5% { opacity: 0.85; }
-      95% { opacity: 0.85; }
-      100% { transform: translateX(105vw); opacity: 0; }
+      0% { transform: translate(0, 0); opacity: 0; }
+      4% { opacity: 0.95; }
+      20% { transform: translate(22vw, -4px); }
+      40% { transform: translate(45vw, 3px); }
+      60% { transform: translate(65vw, -3px); }
+      80% { transform: translate(85vw, 2px); }
+      96% { opacity: 0.95; }
+      100% { transform: translate(108vw, 0); opacity: 0; }
     }
     @keyframes antWalkLeft {
-      0% { transform: translateX(105vw); opacity: 0; }
-      5% { opacity: 0.85; }
-      95% { opacity: 0.85; }
-      100% { transform: translateX(0); opacity: 0; }
+      0% { transform: translate(0, 0) scaleX(-1); opacity: 0; }
+      4% { opacity: 0.95; }
+      20% { transform: translate(-22vw, 3px) scaleX(-1); }
+      40% { transform: translate(-45vw, -3px) scaleX(-1); }
+      60% { transform: translate(-65vw, 2px) scaleX(-1); }
+      80% { transform: translate(-85vw, -2px) scaleX(-1); }
+      96% { opacity: 0.95; }
+      100% { transform: translate(-108vw, 0) scaleX(-1); opacity: 0; }
     }
   `;
   document.head.appendChild(styleSheet);
 
-  // ---------- Bark parallax ----------
+  // ---------- Parallax (bark grain + sap veins) ----------
 
-  function updateBarkPosition() {
-    // Shift only the seamless diagonal grain (::before) via CSS var, so
-    // there's no visible jump no matter how high the climb gets.
-    barkLayer.style.setProperty("--bark-shift", `${state.height * 2.2}px`);
+  // How far the world visibly scrolls per cm climbed. This is deliberately
+  // much bigger than 1:1 so climbing reads as real motion rather than a
+  // number ticking up behind a static painting.
+  const BARK_SCROLL_PX_PER_CM = 11;
+  const VEIN_SCROLL_UNITS_PER_CM = 13;
+
+  function updateParallax() {
+    // Shift the seamless diagonal grain (::before) via CSS var — unbounded
+    // is fine, no jump no matter how high the climb gets.
+    barkLayer.style.setProperty("--bark-shift", `${state.height * BARK_SCROLL_PX_PER_CM}px`);
+
+    // Pan the veins viewBox within one tile height; the 3 stacked copies
+    // (see buildVeins) make the wrap at the tile boundary seamless.
+    const veinY = (state.height * VEIN_SCROLL_UNITS_PER_CM) % VEIN_TILE_HEIGHT;
+    veinsSvg.setAttribute("viewBox", `0 ${veinY} 400 700`);
   }
 
   // ---------- Toast / feedback ----------
@@ -367,7 +405,7 @@
       showToast(`¡Te pasaste! Resbalás -${loss.toFixed(0)} cm`, "slip");
     }
 
-    updateBarkPosition();
+    updateParallax();
     renderStats();
     resetChargeMeter();
     saveState();
@@ -618,7 +656,7 @@
 
   buildVeins();
   spawnAmbientAnts();
-  updateBarkPosition();
+  updateParallax();
   renderStats();
   renderUpgrades();
   renderSap();

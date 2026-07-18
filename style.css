@@ -199,18 +199,22 @@ body {
 
 .ant-sprite {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--bermellon-bright);
-  box-shadow:
-    -5px 0 0 -1px var(--bermellon-bright),
-    5px 0 0 -1px var(--bermellon-bright),
-    0 0 5px rgba(226,67,42,0.7);
+  width: 18px;
+  height: 10px;
+  background-color: var(--bermellon-bright);
+  --ant-shape: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 14'><ellipse cx='6' cy='7' rx='3.4' ry='3'/><ellipse cx='14' cy='7' rx='4' ry='3.4'/><ellipse cx='23' cy='7' rx='3.6' ry='3.2'/><path d='M9 5 L11 3 M9 9 L11 11 M14 3 L14 1 M14 11 L14 13 M18 5 L20 3 M18 9 L20 11' stroke='black' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+  -webkit-mask-image: var(--ant-shape);
+  mask-image: var(--ant-shape);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  filter: drop-shadow(0 0 3px rgba(226,67,42,0.6));
   opacity: 0.95;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
+
 
 /* ---------- Climber ---------- */
 
